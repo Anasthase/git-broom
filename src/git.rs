@@ -1,4 +1,5 @@
-use std::env;
+use std::{env, io};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -39,16 +40,93 @@ impl GitBroom {
         }
 
         if let Some(branch) = self.get_working_branch() {
-            let merged_branches = self.get_merged_branches(branch);
-
-            for branch in &merged_branches {
-                println!("{branch}");
-            }
+            let merged_branches = self.get_merged_branches(&branch);
+            self.process_branches(branch, merged_branches);
         }
 
         if let Some(path) = &self.current_dir {
             env::set_current_dir(path).expect("Unable to set working dir to initial path.");
         }
+    }
+
+    fn process_branches(&self, branch: String, merged_branches: Vec<String>) {
+        if merged_branches.len() > 0 {
+            println!("Found {} merged branches on {}:", merged_branches.len(), branch);
+
+            for branch in &merged_branches {
+                println!("  - {branch}");
+            }
+
+            print!("Delete [a]ll, [s]elected, [c]cancel: ");
+            io::stdout().flush().unwrap();
+
+            let mut choice = String::new();
+
+            io::stdin()
+                .read_line(&mut choice)
+                .expect("Failed to read choice.");
+
+            if !choice.is_empty() && choice.trim().len() == 1 {
+                let ch = choice.to_lowercase().chars().next().unwrap();
+                match ch {
+                    'a' => self.delete_all_branches(merged_branches),
+                    's' => self.ask_delete_all_branches(merged_branches),
+                    _ => println!("No branch deleted."),
+                }
+            } else {
+                println!("No branch deleted.");
+            }
+        } else {
+            println!("No merged branches found on {}.", branch);
+        }
+    }
+
+    fn delete_all_branches(&self, branches: Vec<String>) {
+        println!("---");
+        for branch in &branches {
+            if self.delete_branch(branch) {
+                println!("Branch {branch} deleted.");
+            } else {
+                println!("{branch} has not been deleted.");
+            }
+        }
+    }
+
+    fn ask_delete_all_branches(&self, branches: Vec<String>) {
+        println!("---");
+        for branch in &branches {
+            print!("Delete branch \"{branch}\"? [y]es, [n]o: ");
+            io::stdout().flush().unwrap();
+
+            let mut choice = String::new();
+
+            io::stdin()
+                .read_line(&mut choice)
+                .expect("Failed to read choice.");
+
+            let ch = choice.to_lowercase().chars().next().unwrap();
+            match ch {
+                'y' => {
+                    if self.delete_branch(branch) {
+                        println!("Branch {branch} deleted.");
+                    } else {
+                        println!("{branch} has not been deleted.");
+                    }
+                }
+                _ => println!("{branch} has not been deleted."),
+            }
+        }
+    }
+
+    fn delete_branch(&self, branch: &String) -> bool {
+        let output = Command::new("git")
+            .arg("branch")
+            .arg("-d")
+            .arg(branch)
+            .output()
+            .expect("Unable to delete branch.");
+
+        output.status.success()
     }
 
     fn get_working_branch(&self) -> Option<String> {
@@ -74,7 +152,7 @@ impl GitBroom {
         }
     }
 
-    fn get_merged_branches(&self, branch: String) -> Vec<String> {
+    fn get_merged_branches(&self, branch: &String) -> Vec<String> {
         let output = Command::new("git")
             .arg("branch")
             .arg("--merged")
@@ -85,8 +163,9 @@ impl GitBroom {
         let mut branches: Vec<String> = Vec::new();
 
         String::from_utf8_lossy(&output.stdout).lines().for_each(|line| {
-            if !line.starts_with('*') {
-                branches.push(String::from(line.trim()));
+            let line = line.trim();
+            if !line.starts_with('*') && !line.eq(branch) {
+                branches.push(String::from(line));
             }
         });
 

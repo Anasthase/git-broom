@@ -13,7 +13,6 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    dbg!(&args);
 
     match git::GitBroom::check_git() {
         Ok(_) => git::GitBroom::new(args.repository, args.branch).broom(),
