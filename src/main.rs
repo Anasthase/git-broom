@@ -2,11 +2,13 @@ mod git;
 
 use clap::Parser;
 
+/// Helper tool to clean up local merged Git branches.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Path of Git repository. Current path if not specified.
     repository: Option<String>,
-    /// Name of the person to greet
+    /// Branch to check if local branches are merged on.
     #[arg(short, long)]
     branch: Option<String>,
 }
