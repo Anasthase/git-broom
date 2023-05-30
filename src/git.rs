@@ -7,14 +7,16 @@ use std::process::Command;
 pub struct GitBroom {
     repository: Option<String>,
     branch: Option<String>,
+    quiet: bool,
     current_dir: Option<PathBuf>,
 }
 
 impl GitBroom {
-    pub fn new(repository: Option<String>, branch: Option<String>) -> Self {
+    pub fn new(repository: Option<String>, branch: Option<String>, quiet: bool) -> Self {
         Self {
             repository,
             branch,
+            quiet,
             current_dir: {
                 match env::current_dir() {
                     Ok(path) => Some(path),
@@ -25,11 +27,16 @@ impl GitBroom {
     }
 
     pub fn check_git() ->  Result<(), String> {
-        let output = Command::new("git").arg("status").output();
+        let output = Command::new("git").arg("--version").output();
+        match output {
+            Ok(_) => (),
+            Err(e) => return Err(format!("Unable to found Git: {}", e.to_string())),
+        }
 
+        let output = Command::new("git").arg("status").output();
         match output {
             Ok(_) => Ok(()),
-            Err(e) => Err(format!("Unable to found Git: {}", e.to_string())),
+            Err(e) => Err(format!("Probably not a Git repository: {}", e.to_string())),
         }
     }
 
@@ -51,7 +58,7 @@ impl GitBroom {
 
     fn process_branches(&self, branch: String, merged_branches: Vec<String>) {
         if merged_branches.len() > 0 {
-            println!("Found {} merged branches on {}:", merged_branches.len(), branch);
+            self.print_conditional_message(format!("Found {} merged branches on {}:", merged_branches.len(), branch));
 
             for branch in &merged_branches {
                 println!("  - {branch}");
@@ -71,29 +78,29 @@ impl GitBroom {
                 match ch {
                     'a' => self.delete_all_branches(merged_branches),
                     's' => self.ask_delete_all_branches(merged_branches),
-                    _ => println!("No branch deleted."),
+                    _ => self.print_conditional_message(format!("No branch deleted.")),
                 }
             } else {
-                println!("No branch deleted.");
+                self.print_conditional_message(format!("No branch deleted."));
             }
         } else {
-            println!("No merged branches found on {}.", branch);
+            self.print_conditional_message(format!("No merged branches found on {}.", branch));
         }
     }
 
     fn delete_all_branches(&self, branches: Vec<String>) {
-        println!("---");
+        self.print_conditional_message("---".to_string());
         for branch in &branches {
             if self.delete_branch(branch) {
-                println!("Branch {branch} deleted.");
+                self.print_conditional_message(format!("Branch {branch} deleted."));
             } else {
-                println!("{branch} has not been deleted.");
+                self.print_conditional_message(format!("{branch} has not been deleted."));
             }
         }
     }
 
     fn ask_delete_all_branches(&self, branches: Vec<String>) {
-        println!("---");
+        self.print_conditional_message("---".to_string());
         for branch in &branches {
             print!("Delete branch \"{branch}\"? [y]es, [n]o: ");
             io::stdout().flush().unwrap();
@@ -108,12 +115,12 @@ impl GitBroom {
             match ch {
                 'y' => {
                     if self.delete_branch(branch) {
-                        println!("Branch {branch} deleted.");
+                        self.print_conditional_message(format!("Branch {branch} deleted."));
                     } else {
-                        println!("{branch} has not been deleted.");
+                        self.print_conditional_message(format!("{branch} has not been deleted."));
                     }
                 }
-                _ => println!("{branch} has not been deleted."),
+                _ => self.print_conditional_message(format!("{branch} has not been deleted.")),
             }
         }
     }
@@ -170,5 +177,11 @@ impl GitBroom {
         });
 
         branches
+    }
+
+    fn print_conditional_message(&self, message: String) {
+        if !self.quiet {
+            println!("{message}");
+        }
     }
 }

@@ -11,13 +11,16 @@ struct Args {
     /// Branch to check if local branches are merged on.
     #[arg(short, long)]
     branch: Option<String>,
+    /// Only print required information.
+    #[arg(short, long)]
+    quiet: bool,
 }
 
 fn main() {
     let args = Args::parse();
 
     match git::GitBroom::check_git() {
-        Ok(_) => git::GitBroom::new(args.repository, args.branch).broom(),
+        Ok(_) => git::GitBroom::new(args.repository, args.branch, args.quiet).broom(),
         Err(e) => println!("{e}"),
     }
 }
