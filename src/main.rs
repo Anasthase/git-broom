@@ -1,5 +1,6 @@
 mod git;
 
+use std::error;
 use clap::Parser;
 
 /// Helper tool to clean up local merged Git branches.
@@ -16,11 +17,11 @@ struct Args {
     quiet: bool,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn error::Error>> {
     let args = Args::parse();
 
-    match git::GitBroom::check_git() {
-        Ok(_) => git::GitBroom::new(args.repository, args.branch, args.quiet).broom(),
-        Err(e) => println!("{e}"),
-    }
+    git::GitBroom::check_git()?;
+    git::GitBroom::new(args.repository, args.branch, args.quiet).broom()?;
+
+    Ok(())
 }

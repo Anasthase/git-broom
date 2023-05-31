@@ -1,5 +1,5 @@
 use std::{env, io};
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -26,37 +26,30 @@ impl GitBroom {
         }
     }
 
-    pub fn check_git() ->  Result<(), String> {
-        let output = Command::new("git").arg("--version").output();
-        match output {
-            Ok(_) => (),
-            Err(e) => return Err(format!("Unable to found Git: {}", e.to_string())),
-        }
+    pub fn check_git() ->  Result<(), io::Error> {
+        Command::new("git").arg("--version").output()?;
+        Command::new("git").arg("status").output()?;
 
-        let output = Command::new("git").arg("status").output();
-        match output {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Probably not a Git repository: {}", e.to_string())),
-        }
+        Ok(())
     }
 
-    pub fn broom(&self) {
+    pub fn broom(&self) -> Result<(), io::Error> {
         if let Some(repository) = &self.repository {
-            let working_dir = Path::new(repository);
-            env::set_current_dir(working_dir).expect(format!("Unable to set working dir to {}.", &repository).as_str());
+            env::set_current_dir(Path::new(repository))?;
         }
 
-        if let Some(branch) = self.get_working_branch() {
-            let merged_branches = self.get_merged_branches(&branch);
-            self.process_branches(branch, merged_branches);
-        }
+        self.broom_branch(self.get_working_branch()?)?;
 
         if let Some(path) = &self.current_dir {
-            env::set_current_dir(path).expect("Unable to set working dir to initial path.");
+            env::set_current_dir(path)?;
         }
+
+        Ok(())
     }
 
-    fn process_branches(&self, branch: String, merged_branches: Vec<String>) {
+    fn broom_branch(&self, branch: String) -> Result<(), io::Error> {
+        let merged_branches= self.get_merged_branches(&branch)?;
+
         if merged_branches.len() > 0 {
             self.print_conditional_message(format!("Found {} merged branches on {}:", merged_branches.len(), branch));
 
@@ -64,57 +57,37 @@ impl GitBroom {
                 println!("  - {branch}");
             }
 
-            print!("Delete [a]ll, [s]elected, [c]cancel: ");
-            io::stdout().flush().unwrap();
-
-            let mut choice = String::new();
-
-            io::stdin()
-                .read_line(&mut choice)
-                .expect("Failed to read choice.");
-
-            if !choice.is_empty() && choice.trim().len() == 1 {
-                let ch = choice.to_lowercase().chars().next().unwrap();
-                match ch {
-                    'a' => self.delete_all_branches(merged_branches),
-                    's' => self.ask_delete_all_branches(merged_branches),
-                    _ => self.print_conditional_message(format!("No branch deleted.")),
-                }
-            } else {
-                self.print_conditional_message(format!("No branch deleted."));
+            match self.read_user_input(String::from("Delete [a]ll, [s]elected, [n]one: "), 'n')? {
+                'a' => self.delete_all_branches(merged_branches)?,
+                's' => self.ask_delete_all_branches(merged_branches)?,
+                _ => self.print_conditional_message(format!("No branch deleted.")),
             }
         } else {
             self.print_conditional_message(format!("No merged branches found on {}.", branch));
         }
+
+        Ok(())
     }
 
-    fn delete_all_branches(&self, branches: Vec<String>) {
+    fn delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
         self.print_conditional_message("---".to_string());
         for branch in &branches {
-            if self.delete_branch(branch) {
+            if self.delete_branch(branch)? {
                 self.print_conditional_message(format!("Branch {branch} deleted."));
             } else {
                 self.print_conditional_message(format!("{branch} has not been deleted."));
             }
         }
+
+        Ok(())
     }
 
-    fn ask_delete_all_branches(&self, branches: Vec<String>) {
+    fn ask_delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
         self.print_conditional_message("---".to_string());
         for branch in &branches {
-            print!("Delete branch \"{branch}\"? [y]es, [n]o: ");
-            io::stdout().flush().unwrap();
-
-            let mut choice = String::new();
-
-            io::stdin()
-                .read_line(&mut choice)
-                .expect("Failed to read choice.");
-
-            let ch = choice.to_lowercase().chars().next().unwrap();
-            match ch {
+            match self.read_user_input(format!("Delete branch \"{branch}\"? [y]es, [n]o: "), 'n')? {
                 'y' => {
-                    if self.delete_branch(branch) {
+                    if self.delete_branch(branch)? {
                         self.print_conditional_message(format!("Branch {branch} deleted."));
                     } else {
                         self.print_conditional_message(format!("{branch} has not been deleted."));
@@ -123,49 +96,49 @@ impl GitBroom {
                 _ => self.print_conditional_message(format!("{branch} has not been deleted.")),
             }
         }
+
+        Ok(())
     }
 
-    fn delete_branch(&self, branch: &String) -> bool {
+    fn delete_branch(&self, branch: &String) -> Result<bool, io::Error> {
         let output = Command::new("git")
             .arg("branch")
             .arg("-d")
             .arg(branch)
-            .output()
-            .expect("Unable to delete branch.");
+            .output()?;
 
-        output.status.success()
+        Ok(output.status.success())
     }
 
-    fn get_working_branch(&self) -> Option<String> {
-        match &self.branch {
+    fn get_working_branch(&self) -> Result<String, io::Error> {
+        let working_branch = match &self.branch {
             None => self.get_current_branch(),
-            Some(branch) => Some(branch.to_string()),
+            Some(branch) => Ok(branch.trim().to_string()),
+        }?;
+
+        if working_branch.is_empty() {
+            return Err(io::Error::new(ErrorKind::Other, "No valid branch found. Is the repository a valid Git repository?"));
         }
+
+        Ok(working_branch)
     }
 
-    fn get_current_branch(&self) -> Option<String> {
+    fn get_current_branch(&self) -> Result<String, io::Error> {
         let output = Command::new("git")
             .arg("rev-parse")
             .arg("--abbrev-ref")
             .arg("HEAD")
-            .output()
-            .expect("Unable to get current branch.");
+            .output()?;
 
-        if output.status.success() {
-            Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        } else {
-            println!("{}", String::from_utf8_lossy(&output.stderr));
-            None
-        }
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
-    fn get_merged_branches(&self, branch: &String) -> Vec<String> {
+    fn get_merged_branches(&self, branch: &String) -> Result<Vec<String>, io::Error> {
         let output = Command::new("git")
             .arg("branch")
             .arg("--merged")
             .arg(branch)
-            .output()
-            .expect("Unable to get merged branches on {branch}.");
+            .output()?;
 
         let mut branches: Vec<String> = Vec::new();
 
@@ -176,7 +149,22 @@ impl GitBroom {
             }
         });
 
-        branches
+        Ok(branches)
+    }
+
+    fn read_user_input(&self, message: String, default: char) -> Result<char, io::Error> {
+        print!("{}", message);
+        io::stdout().flush().unwrap();
+
+        let mut choice = String::new();
+
+        io::stdin().read_line(&mut choice)?;
+
+        if !choice.is_empty() && choice.trim().len() == 1 {
+            Ok(choice.to_lowercase().chars().next().unwrap())
+        } else {
+            Ok(default)
+        }
     }
 
     fn print_conditional_message(&self, message: String) {
