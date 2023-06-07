@@ -134,6 +134,8 @@ impl GitBroom {
     }
 
     fn get_merged_branches(&self, branch: &String) -> Result<Vec<String>, io::Error> {
+        let protected_branches = self.get_protected_branches();
+
         let output = Command::new("git")
             .arg("branch")
             .arg("--merged")
@@ -143,13 +145,31 @@ impl GitBroom {
         let mut branches: Vec<String> = Vec::new();
 
         String::from_utf8_lossy(&output.stdout).lines().for_each(|line| {
-            let line = line.trim();
-            if !line.starts_with('*') && !line.eq(branch) {
+            let line = line.trim().to_string();
+            if !line.starts_with('*') && !line.eq(branch) && !protected_branches.contains(&line) {
                 branches.push(String::from(line));
             }
         });
 
         Ok(branches)
+    }
+
+    fn get_protected_branches(&self) -> Vec<String> {
+        match &mut env::current_dir() {
+            Ok(path) => {
+                path.push(".git");
+                match gix_config::File::from_git_dir(&path) {
+                    Ok(file) => {
+                        match file.string_by_key("broom.protectedbranches") {
+                            Some(branches) => branches.to_string().split(",").map(String::from).collect(),
+                            None => Vec::new(),
+                        }
+                    },
+                    Err(_)  => Vec::new(),
+                }
+            }
+            Err(_) => Vec::new(),
+        }
     }
 
     fn read_user_input(&self, message: String, default: char) -> Result<char, io::Error> {
