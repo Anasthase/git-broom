@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+use colored::*;
 use std::{env, io};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
@@ -88,24 +89,24 @@ impl GitBroom {
                 .collect();
 
             if !self.quiet && !protected_branches.is_empty() {
-                println!("Found {} merged but protected branches on {}:", protected_branches.len(), branch);
+                println!("Found {} merged but {} branches on {}:", protected_branches.len(), "protected".bold(), branch.bold().underline());
 
                 for branch in &protected_branches {
-                    println!("  - {branch}");
+                    println!("  * {}", branch.blue());
                 }
 
                 println!("These branches will not be deleted.");
 
                 if !not_protected_branches.is_empty() {
-                    println!("---");
+                    println!();
                 }
             }
 
             if !not_protected_branches.is_empty() {
-                self.print_conditional_message(format!("Found {} merged branches on {}:", not_protected_branches.len(), branch));
+                self.print_conditional_message(format!("Found {} merged branches on {}:", not_protected_branches.len(), branch.bold().underline()));
 
                 for branch in &not_protected_branches {
-                    println!("  - {branch}");
+                    println!("  * {}", branch.green());
                 }
 
                 match self.read_user_input(String::from("Delete [a]ll, [s]elected, [n]one: "), 'n')? {
@@ -115,19 +116,19 @@ impl GitBroom {
                 }
             }
         } else {
-            self.print_conditional_message(format!("No merged branches found on {}.", branch));
+            self.print_conditional_message(format!("No merged branches found on {}.", branch.bold()));
         }
 
         Ok(())
     }
 
     fn delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
-        self.print_conditional_message("---".to_string());
+        println!();
         for branch in &branches {
             if self.delete_branch(branch)? {
-                self.print_conditional_message(format!("Branch {branch} deleted."));
+                self.print_conditional_message(format!("Branch {} deleted.", branch.bold()));
             } else {
-                self.print_conditional_message(format!("{branch} has not been deleted."));
+                self.print_conditional_message(format!("{} cannot be deleted.", branch.bold()));
             }
         }
 
@@ -135,17 +136,17 @@ impl GitBroom {
     }
 
     fn ask_delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
-        self.print_conditional_message("---".to_string());
+        println!();
         for branch in &branches {
-            match self.read_user_input(format!("Delete branch \"{branch}\"? [y]es, [n]o: "), 'n')? {
+            match self.read_user_input(format!("Delete branch {}? [y]es, [n]o: ", branch.bold()), 'n')? {
                 'y' => {
                     if self.delete_branch(branch)? {
-                        self.print_conditional_message(format!("Branch {branch} deleted."));
+                        self.print_conditional_message(format!("Branch {} deleted.", branch.bold()));
                     } else {
-                        self.print_conditional_message(format!("{branch} has not been deleted."));
+                        self.print_conditional_message(format!("{} has not been deleted.", branch.bold()));
                     }
                 }
-                _ => self.print_conditional_message(format!("{branch} has not been deleted.")),
+                _ => self.print_conditional_message(format!("{} has not been deleted.", branch.bold())),
             }
         }
 

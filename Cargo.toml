@@ -1,6 +1,6 @@
 [package]
 name = "git-broom"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 readme = "README.md"
 license = "GPL-3"
@@ -11,4 +11,5 @@ description = "Helper tool to clean up local merged Git branches.\n\nDefine prot
 
 [dependencies]
 clap = { version = "4.3.0", features = ["derive"] }
+colored = "2.0.0"
 gix-config = "0.23.0"
