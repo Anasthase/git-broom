@@ -52,6 +52,13 @@ For a release build, run:
 cargo build --release
 ```
 
+### Building Windows target on Linux
+
+1. Install Cross: `cargo install cross`
+2. Install Podman: `apt-get install podman`
+3. Install Windows target: `rustup target add x86_64-pc-windows-gnu`
+4. Build: `cross build --target x86_64-pc-windows-gnu`
+
 ## License
 
 This project is released under the [GPL-3 License](./LICENSE).
