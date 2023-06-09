@@ -1,3 +1,21 @@
+/*
+Git Broom
+Copyright (C) 2023  All contributors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 use std::{env, io};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
@@ -9,6 +27,11 @@ pub struct GitBroom {
     branch: Option<String>,
     quiet: bool,
     current_dir: Option<PathBuf>,
+}
+
+struct Branch {
+    name: String,
+    protected: bool,
 }
 
 impl GitBroom {
@@ -48,19 +71,48 @@ impl GitBroom {
     }
 
     fn broom_branch(&self, branch: String) -> Result<(), io::Error> {
-        let merged_branches= self.get_merged_branches(&branch)?;
+        let merged_branches = self.get_merged_branches(&branch)?;
 
-        if merged_branches.len() > 0 {
-            self.print_conditional_message(format!("Found {} merged branches on {}:", merged_branches.len(), branch));
+        if !merged_branches.is_empty() {
 
-            for branch in &merged_branches {
-                println!("  - {branch}");
+            let protected_branches: Vec<String> = merged_branches
+                .iter()
+                .filter(|branch| branch.protected)
+                .map(|branch| String::from(&branch.name))
+                .collect();
+
+            let not_protected_branches: Vec<String> = merged_branches
+                .iter()
+                .filter(|branch| !branch.protected)
+                .map(|branch| String::from(&branch.name))
+                .collect();
+
+            if !self.quiet && !protected_branches.is_empty() {
+                println!("Found {} merged but protected branches on {}:", protected_branches.len(), branch);
+
+                for branch in &protected_branches {
+                    println!("  - {branch}");
+                }
+
+                println!("These branches will not be deleted.");
+
+                if !not_protected_branches.is_empty() {
+                    println!("---");
+                }
             }
 
-            match self.read_user_input(String::from("Delete [a]ll, [s]elected, [n]one: "), 'n')? {
-                'a' => self.delete_all_branches(merged_branches)?,
-                's' => self.ask_delete_all_branches(merged_branches)?,
-                _ => self.print_conditional_message(format!("No branch deleted.")),
+            if !not_protected_branches.is_empty() {
+                self.print_conditional_message(format!("Found {} merged branches on {}:", not_protected_branches.len(), branch));
+
+                for branch in &not_protected_branches {
+                    println!("  - {branch}");
+                }
+
+                match self.read_user_input(String::from("Delete [a]ll, [s]elected, [n]one: "), 'n')? {
+                    'a' => self.delete_all_branches(not_protected_branches)?,
+                    's' => self.ask_delete_all_branches(not_protected_branches)?,
+                    _ => self.print_conditional_message(format!("No branch deleted.")),
+                }
             }
         } else {
             self.print_conditional_message(format!("No merged branches found on {}.", branch));
@@ -133,7 +185,7 @@ impl GitBroom {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
-    fn get_merged_branches(&self, branch: &String) -> Result<Vec<String>, io::Error> {
+    fn get_merged_branches(&self, branch: &String) -> Result<Vec<Branch>, io::Error> {
         let protected_branches = self.get_protected_branches();
 
         let output = Command::new("git")
@@ -142,12 +194,17 @@ impl GitBroom {
             .arg(branch)
             .output()?;
 
-        let mut branches: Vec<String> = Vec::new();
+        let mut branches: Vec<Branch> = Vec::new();
 
         String::from_utf8_lossy(&output.stdout).lines().for_each(|line| {
             let line = line.trim().to_string();
-            if !line.starts_with('*') && !line.eq(branch) && !protected_branches.contains(&line) {
-                branches.push(String::from(line));
+            if !line.starts_with('*') && !line.eq(branch) {
+                let branch = Branch {
+                    name: String::from(&line),
+                    protected: protected_branches.contains(&line),
+                };
+
+                branches.push(branch);
             }
         });
 
