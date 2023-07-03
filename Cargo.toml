@@ -1,6 +1,6 @@
 [package]
 name = "git-broom"
-version = "0.4.0"
+version = "0.5.0-SNAPSHOT"
 edition = "2021"
 readme = "README.md"
 license = "GPL-3"
