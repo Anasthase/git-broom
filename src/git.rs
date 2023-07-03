@@ -16,18 +16,21 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-use colored::*;
-use std::{env, io};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{env, io};
 
-#[derive(Debug)]
+use colored::*;
+
+use crate::i18n::Localization;
+
 pub struct GitBroom {
     repository: Option<String>,
     branch: Option<String>,
     quiet: bool,
     current_dir: Option<PathBuf>,
+    localization: Localization,
 }
 
 struct Branch {
@@ -46,11 +49,12 @@ impl GitBroom {
                     Ok(path) => Some(path),
                     Err(_) => None,
                 }
-            }
+            },
+            localization: Localization::new(),
         }
     }
 
-    pub fn check_git() ->  Result<(), io::Error> {
+    pub fn check_git() -> Result<(), io::Error> {
         Command::new("git").arg("--version").output()?;
         Command::new("git").arg("status").output()?;
 
@@ -75,7 +79,6 @@ impl GitBroom {
         let merged_branches = self.get_merged_branches(&branch)?;
 
         if !merged_branches.is_empty() {
-
             let protected_branches: Vec<String> = merged_branches
                 .iter()
                 .filter(|branch| branch.protected)
@@ -89,13 +92,27 @@ impl GitBroom {
                 .collect();
 
             if !self.quiet && !protected_branches.is_empty() {
-                println!("Found {} merged but {} branches on {}:", protected_branches.len(), "protected".bold(), branch.bold().underline());
+                println!(
+                    "{}",
+                    self.localization.get_message_with_count_and_one_arg(
+                        "found-merged-protected",
+                        protected_branches.len(),
+                        String::from("branch"),
+                        branch.bold().underline().to_string()
+                    )
+                );
 
                 for branch in &protected_branches {
                     println!("  * {}", branch.blue());
                 }
 
-                println!("These branches will not be deleted.");
+                println!(
+                    "{}",
+                    self.localization.get_message_with_count(
+                        "branches-wont-be-deleted",
+                        protected_branches.len()
+                    )
+                );
 
                 if !not_protected_branches.is_empty() {
                     println!();
@@ -103,20 +120,35 @@ impl GitBroom {
             }
 
             if !not_protected_branches.is_empty() {
-                self.print_conditional_message(format!("Found {} merged branches on {}:", not_protected_branches.len(), branch.bold().underline()));
+                self.print_conditional_message(
+                    self.localization.get_message_with_count_and_one_arg(
+                        "found-merged",
+                        not_protected_branches.len(),
+                        String::from("branch"),
+                        branch.bold().underline().to_string(),
+                    ),
+                );
 
                 for branch in &not_protected_branches {
                     println!("  * {}", branch.green());
                 }
 
-                match self.read_user_input(String::from("Delete [a]ll, [s]elected, [n]one: "), 'n')? {
+                match self
+                    .read_user_input(self.localization.get_message("delete-selection") + " ", 'n')?
+                {
                     'a' => self.delete_all_branches(not_protected_branches)?,
                     's' => self.ask_delete_all_branches(not_protected_branches)?,
-                    _ => self.print_conditional_message(format!("No branch deleted.")),
+                    _ => self.print_conditional_message(
+                        self.localization.get_message("no-branch-deleted"),
+                    ),
                 }
             }
         } else {
-            self.print_conditional_message(format!("No merged branches found on {}.", branch.bold()));
+            self.print_conditional_message(self.localization.get_message_with_one_arg(
+                "no-merged-branch",
+                String::from("branch"),
+                branch.bold().to_string(),
+            ));
         }
 
         Ok(())
@@ -126,9 +158,17 @@ impl GitBroom {
         println!();
         for branch in &branches {
             if self.delete_branch(branch)? {
-                self.print_conditional_message(format!("Branch {} deleted.", branch.bold()));
+                self.print_conditional_message(self.localization.get_message_with_one_arg(
+                    "branch-deleted",
+                    String::from("branch"),
+                    branch.bold().to_string(),
+                ));
             } else {
-                self.print_conditional_message(format!("{} cannot be deleted.", branch.bold()));
+                self.print_conditional_message(self.localization.get_message_with_one_arg(
+                    "branch-cannot-be-deleted",
+                    String::from("branch"),
+                    branch.bold().to_string(),
+                ));
             }
         }
 
@@ -138,15 +178,34 @@ impl GitBroom {
     fn ask_delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
         println!();
         for branch in &branches {
-            match self.read_user_input(format!("Delete branch {}? [y]es, [n]o: ", branch.bold()), 'n')? {
+            match self.read_user_input(
+                self.localization.get_message_with_one_arg(
+                    "delete-branch-yes-no",
+                    String::from("branch"),
+                    branch.bold().to_string(),
+                ) + " ",
+                'n',
+            )? {
                 'y' => {
                     if self.delete_branch(branch)? {
-                        self.print_conditional_message(format!("Branch {} deleted.", branch.bold()));
+                        self.print_conditional_message(self.localization.get_message_with_one_arg(
+                            "branch-deleted",
+                            String::from("branch"),
+                            branch.bold().to_string(),
+                        ));
                     } else {
-                        self.print_conditional_message(format!("{} has not been deleted.", branch.bold()));
+                        self.print_conditional_message(self.localization.get_message_with_one_arg(
+                            "branch-cannot-be-deleted",
+                            String::from("branch"),
+                            branch.bold().to_string(),
+                        ));
                     }
                 }
-                _ => self.print_conditional_message(format!("{} has not been deleted.", branch.bold())),
+                _ => self.print_conditional_message(self.localization.get_message_with_one_arg(
+                    "branch-has-not-been-deleted",
+                    String::from("branch"),
+                    branch.bold().to_string(),
+                )),
             }
         }
 
@@ -170,7 +229,10 @@ impl GitBroom {
         }?;
 
         if working_branch.is_empty() {
-            return Err(io::Error::new(ErrorKind::Other, "No valid branch found. Is the repository a valid Git repository?"));
+            return Err(io::Error::new(
+                ErrorKind::Other,
+                self.localization.get_message("no-valid-branch-found"),
+            ));
         }
 
         Ok(working_branch)
@@ -197,17 +259,19 @@ impl GitBroom {
 
         let mut branches: Vec<Branch> = Vec::new();
 
-        String::from_utf8_lossy(&output.stdout).lines().for_each(|line| {
-            let line = line.trim().to_string();
-            if !line.starts_with('*') && !line.eq(branch) {
-                let branch = Branch {
-                    name: String::from(&line),
-                    protected: protected_branches.contains(&line),
-                };
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .for_each(|line| {
+                let line = line.trim().to_string();
+                if !line.starts_with('*') && !line.eq(branch) {
+                    let branch = Branch {
+                        name: String::from(&line),
+                        protected: protected_branches.contains(&line),
+                    };
 
-                branches.push(branch);
-            }
-        });
+                    branches.push(branch);
+                }
+            });
 
         Ok(branches)
     }
@@ -217,13 +281,13 @@ impl GitBroom {
             Ok(path) => {
                 path.push(".git");
                 match gix_config::File::from_git_dir(&path) {
-                    Ok(file) => {
-                        match file.string_by_key("broom.protectedbranches") {
-                            Some(branches) => branches.to_string().split(",").map(String::from).collect(),
-                            None => Vec::new(),
+                    Ok(file) => match file.string_by_key("broom.protectedbranches") {
+                        Some(branches) => {
+                            branches.to_string().split(",").map(String::from).collect()
                         }
+                        None => Vec::new(),
                     },
-                    Err(_)  => Vec::new(),
+                    Err(_) => Vec::new(),
                 }
             }
             Err(_) => Vec::new(),

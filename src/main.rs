@@ -16,10 +16,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-mod git;
-
 use std::error;
+
 use clap::Parser;
+
+mod git;
+mod i18n;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
