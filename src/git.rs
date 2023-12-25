@@ -280,7 +280,7 @@ impl GitBroom {
         match &mut env::current_dir() {
             Ok(path) => {
                 path.push(".git");
-                match gix_config::File::from_git_dir(&path) {
+                match gix_config::File::from_git_dir(path.clone()) {
                     Ok(file) => match file.string_by_key("broom.protectedbranches") {
                         Some(branches) => {
                             branches.to_string().split(",").map(String::from).collect()

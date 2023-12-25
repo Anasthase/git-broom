@@ -1,6 +1,6 @@
 [package]
 name = "git-broom"
-version = "0.4.0"
+version = "0.5.0-SNAPSHOT"
 edition = "2021"
 readme = "README.md"
 license = "GPL-3"
@@ -14,7 +14,7 @@ clap = { version = "4.3.0", features = ["derive"] }
 colored = "2.0.0"
 fluent = "0.16.0"
 fluent-langneg = "0.13.0"
-gix-config = "0.25.1"
-rust-embed = { version = "6.7.0", features = ["include-exclude"] }
+gix-config = "0.32.1"
+rust-embed = { version = "8.1.0", features = ["include-exclude"] }
 sys-locale = "0.3.0"
 unic-langid = { version = "0.9.1", features = ["macros"] }
