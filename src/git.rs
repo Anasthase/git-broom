@@ -28,7 +28,6 @@ use crate::i18n::Localization;
 pub struct GitBroom {
     repository: Option<String>,
     branch: Option<String>,
-    quiet: bool,
     current_dir: Option<PathBuf>,
     localization: Localization,
 }
@@ -39,11 +38,10 @@ struct Branch {
 }
 
 impl GitBroom {
-    pub fn new(repository: Option<String>, branch: Option<String>, quiet: bool) -> Self {
+    pub fn new(repository: Option<String>, branch: Option<String>) -> Self {
         Self {
             repository,
             branch,
-            quiet,
             current_dir: {
                 match env::current_dir() {
                     Ok(path) => Some(path),
@@ -91,7 +89,7 @@ impl GitBroom {
                 .map(|branch| String::from(&branch.name))
                 .collect();
 
-            if !self.quiet && !protected_branches.is_empty() {
+            if !protected_branches.is_empty() {
                 println!(
                     "{}",
                     self.localization.get_message_with_count_and_one_arg(
@@ -310,8 +308,6 @@ impl GitBroom {
     }
 
     fn print_conditional_message(&self, message: String) {
-        if !self.quiet {
-            println!("{message}");
-        }
+        println!("{message}");        
     }
 }
