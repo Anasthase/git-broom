@@ -31,13 +31,16 @@ struct Args {
     /// Branch to check if local branches are merged on.
     #[arg(short, long)]
     branch: Option<String>,
+    /// Print merged branches, do not propose to delete them.
+    #[arg(short, long)]
+    dry_run: bool,
 }
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args = Args::parse();
 
     git::GitBroom::check_git()?;
-    git::GitBroom::new(args.repository, args.branch).broom()?;
+    git::GitBroom::new(args.repository, args.branch, args.dry_run).broom()?;
 
     Ok(())
 }

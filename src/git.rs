@@ -29,6 +29,7 @@ use crate::i18n::Localization;
 pub struct GitBroom {
     repository: Option<String>,
     branch: Option<String>,
+    dry_run: bool,
     current_dir: Option<PathBuf>,
     localization: Localization,
 }
@@ -39,10 +40,11 @@ struct Branch {
 }
 
 impl GitBroom {
-    pub fn new(repository: Option<String>, branch: Option<String>) -> Self {
+    pub fn new(repository: Option<String>, branch: Option<String>, dry_run: bool) -> Self {
         Self {
             repository,
             branch,
+            dry_run,
             current_dir: {
                 match env::current_dir() {
                     Ok(path) => Some(path),
@@ -132,14 +134,17 @@ impl GitBroom {
                     println!("  * {}", branch.green());
                 }
 
-                match self
-                    .read_user_input(self.localization.get_message("delete-selection") + " ", 'n')?
-                {
-                    'a' => self.delete_all_branches(not_protected_branches)?,
-                    's' => self.ask_delete_all_branches(not_protected_branches)?,
-                    _ => self.print_conditional_message(
-                        self.localization.get_message("no-branch-deleted"),
-                    ),
+                if !self.dry_run {
+                    match self.read_user_input(
+                        self.localization.get_message("delete-selection") + " ",
+                        'n',
+                    )? {
+                        'a' => self.delete_all_branches(not_protected_branches)?,
+                        's' => self.ask_delete_all_branches(not_protected_branches)?,
+                        _ => self.print_conditional_message(
+                            self.localization.get_message("no-branch-deleted"),
+                        ),
+                    }
                 }
             }
         } else {
@@ -250,7 +255,7 @@ impl GitBroom {
     fn is_protected_branch(&self, branch: &String, protected_branches: &Vec<Regex>) -> bool {
         for protected_branch in protected_branches.iter() {
             if protected_branch.is_match(&branch) {
-                return true
+                return true;
             }
         }
 
@@ -291,13 +296,12 @@ impl GitBroom {
                 path.push(".git");
                 match gix_config::File::from_git_dir(path.clone()) {
                     Ok(file) => match file.string_by_key("broom.protectedbranches") {
-                        Some(branches) => {
-                            branches.to_string()
-                                .split(",")
-                                .map(String::from)
-                                .filter_map(|re| Regex::new(&re).ok())
-                                .collect()
-                        }
+                        Some(branches) => branches
+                            .to_string()
+                            .split(",")
+                            .map(String::from)
+                            .filter_map(|re| Regex::new(&re).ok())
+                            .collect(),
                         None => Vec::new(),
                     },
                     Err(_) => Vec::new(),
@@ -323,6 +327,6 @@ impl GitBroom {
     }
 
     fn print_conditional_message(&self, message: String) {
-        println!("{message}");        
+        println!("{message}");
     }
 }
