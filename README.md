@@ -26,17 +26,19 @@ git broom --branch MyBranch ../path/to/my/application/repository
 
 ## Protected branches
 
-You may have branches that you do not want to delete, even if they are merged. You can define these branches as "protected", as a comma-separated list of branches stored with Git configuration under the `broom.protectedbranches` key.
+You may have branches that you do not want to delete, even if they are merged. You can define these branches as "protected", as a comma-separated list regular expressions stored with Git configuration under the `broom.protectedbranches` key.
 
 ```
 git config --local broom.protectedbranches main,release-1.0
 ```
 
 ```
-git config --global broom.protectedbranches main
+git config --global broom.protectedbranches main,^release/+
 ```
 
-Protected branches will never be deleted by Git Broom. If a protected branch is merged, you will only be informed by the tool.
+Branches matching any of the regular expresions will not be deleted by Git Broom. If a protected branch is merged, you will only be informed by the tool.
+
+See https://docs.rs/regex/latest/regex/#syntax for details on the regular expression syntax. 
 
 ## Build
 

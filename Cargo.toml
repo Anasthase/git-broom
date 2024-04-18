@@ -5,7 +5,7 @@ edition = "2021"
 readme = "README.md"
 license = "GPL-3"
 repository = "https://github.com/Anasthase/git-broom"
-description = "Helper tool to clean up local merged Git branches.\nDefine protected branches (comma-separated) with git configuration under the key `broom.protectedbranches`.\nEx: git config --local broom.protectedbranches main,develop"
+description = "Helper tool to clean up local merged Git branches.\nDefine protected branches with a comma-separated list of regular expressions in git configuration under the key `broom.protectedbranches`.\nEx: git config --local broom.protectedbranches main,develop,^release/+"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,6 +15,7 @@ colored = "2.0.0"
 fluent = "0.16.0"
 fluent-langneg = "0.13.0"
 gix-config = "0.32.1"
+regex = "1.10.4"
 rust-embed = { version = "8.1.0", features = ["include-exclude"] }
 sys-locale = "0.3.0"
 unic-langid = { version = "0.9.1", features = ["macros"] }

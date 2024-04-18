@@ -22,6 +22,7 @@ use std::process::Command;
 use std::{env, io};
 
 use colored::*;
+use regex::Regex;
 
 use crate::i18n::Localization;
 
@@ -246,6 +247,16 @@ impl GitBroom {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    fn is_protected_branch(&self, branch: &String, protected_branches: &Vec<Regex>) -> bool {
+        for protected_branch in protected_branches.iter() {
+            if protected_branch.is_match(&branch) {
+                return true
+            }
+        }
+
+        false
+    }
+
     fn get_merged_branches(&self, branch: &String) -> Result<Vec<Branch>, io::Error> {
         let protected_branches = self.get_protected_branches();
 
@@ -264,7 +275,7 @@ impl GitBroom {
                 if !line.starts_with('*') && !line.eq(branch) {
                     let branch = Branch {
                         name: String::from(&line),
-                        protected: protected_branches.contains(&line),
+                        protected: self.is_protected_branch(&line, &protected_branches),
                     };
 
                     branches.push(branch);
@@ -274,14 +285,18 @@ impl GitBroom {
         Ok(branches)
     }
 
-    fn get_protected_branches(&self) -> Vec<String> {
+    fn get_protected_branches(&self) -> Vec<Regex> {
         match &mut env::current_dir() {
             Ok(path) => {
                 path.push(".git");
                 match gix_config::File::from_git_dir(path.clone()) {
                     Ok(file) => match file.string_by_key("broom.protectedbranches") {
                         Some(branches) => {
-                            branches.to_string().split(",").map(String::from).collect()
+                            branches.to_string()
+                                .split(",")
+                                .map(String::from)
+                                .filter_map(|re| Regex::new(&re).ok())
+                                .collect()
                         }
                         None => Vec::new(),
                     },
