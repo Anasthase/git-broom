@@ -121,13 +121,14 @@ impl GitBroom {
             }
 
             if !not_protected_branches.is_empty() {
-                self.print_conditional_message(
+                println!(
+                    "{}",
                     self.localization.get_message_with_count_and_one_arg(
                         "found-merged",
                         not_protected_branches.len(),
                         String::from("branch"),
                         branch.bold().underline().to_string(),
-                    ),
+                    )
                 );
 
                 for branch in &not_protected_branches {
@@ -141,18 +142,19 @@ impl GitBroom {
                     )? {
                         'a' => self.delete_all_branches(not_protected_branches)?,
                         's' => self.ask_delete_all_branches(not_protected_branches)?,
-                        _ => self.print_conditional_message(
-                            self.localization.get_message("no-branch-deleted"),
-                        ),
+                        _ => println!("{}", self.localization.get_message("no-branch-deleted"),),
                     }
                 }
             }
         } else {
-            self.print_conditional_message(self.localization.get_message_with_one_arg(
-                "no-merged-branch",
-                String::from("branch"),
-                branch.bold().to_string(),
-            ));
+            println!(
+                "{}",
+                self.localization.get_message_with_one_arg(
+                    "no-merged-branch",
+                    String::from("branch"),
+                    branch.bold().to_string(),
+                )
+            );
         }
 
         Ok(())
@@ -162,17 +164,23 @@ impl GitBroom {
         println!();
         for branch in &branches {
             if self.delete_branch(branch)? {
-                self.print_conditional_message(self.localization.get_message_with_one_arg(
-                    "branch-deleted",
-                    String::from("branch"),
-                    branch.bold().to_string(),
-                ));
+                println!(
+                    "{}",
+                    self.localization.get_message_with_one_arg(
+                        "branch-deleted",
+                        String::from("branch"),
+                        branch.bold().to_string(),
+                    )
+                );
             } else {
-                self.print_conditional_message(self.localization.get_message_with_one_arg(
-                    "branch-cannot-be-deleted",
-                    String::from("branch"),
-                    branch.bold().to_string(),
-                ));
+                println!(
+                    "{}",
+                    self.localization.get_message_with_one_arg(
+                        "branch-cannot-be-deleted",
+                        String::from("branch"),
+                        branch.bold().to_string(),
+                    )
+                );
             }
         }
 
@@ -192,24 +200,33 @@ impl GitBroom {
             )? {
                 'y' => {
                     if self.delete_branch(branch)? {
-                        self.print_conditional_message(self.localization.get_message_with_one_arg(
-                            "branch-deleted",
-                            String::from("branch"),
-                            branch.bold().to_string(),
-                        ));
+                        println!(
+                            "{}",
+                            self.localization.get_message_with_one_arg(
+                                "branch-deleted",
+                                String::from("branch"),
+                                branch.bold().to_string(),
+                            )
+                        );
                     } else {
-                        self.print_conditional_message(self.localization.get_message_with_one_arg(
-                            "branch-cannot-be-deleted",
-                            String::from("branch"),
-                            branch.bold().to_string(),
-                        ));
+                        println!(
+                            "{}",
+                            self.localization.get_message_with_one_arg(
+                                "branch-cannot-be-deleted",
+                                String::from("branch"),
+                                branch.bold().to_string(),
+                            )
+                        );
                     }
                 }
-                _ => self.print_conditional_message(self.localization.get_message_with_one_arg(
-                    "branch-has-not-been-deleted",
-                    String::from("branch"),
-                    branch.bold().to_string(),
-                )),
+                _ => println!(
+                    "{}",
+                    self.localization.get_message_with_one_arg(
+                        "branch-has-not-been-deleted",
+                        String::from("branch"),
+                        branch.bold().to_string(),
+                    )
+                ),
             }
         }
 
@@ -324,9 +341,5 @@ impl GitBroom {
         } else {
             Ok(default)
         }
-    }
-
-    fn print_conditional_message(&self, message: String) {
-        println!("{message}");
     }
 }
