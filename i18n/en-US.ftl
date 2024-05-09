@@ -20,4 +20,6 @@ delete-branch-yes-no = Delete branch { $branch }? [y]es, [n]o:
 branch-deleted = Branch { $branch } deleted.
 branch-cannot-be-deleted = { $branch } cannot be deleted.
 branch-has-not-been-deleted = { $branch } has not been deleted.
-no-valid-branch-found = No valid branch found. Is the repository a valid Git repository?
+no-valid-branch-found = No valid branch found. Is the target folder a valid Git repository?
+not-a-git-repository = Not a Git repository.
+git-not-found = Git cannot be found. Please install it.

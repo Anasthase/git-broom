@@ -1,6 +1,6 @@
 /*
 Git Broom
-Copyright (C) 2023  All contributors.
+Copyright (C) 2024  All contributors.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use std::error;
 
 use clap::Parser;
+use colored::Colorize;
 
 mod git;
 mod i18n;
@@ -39,8 +40,10 @@ struct Args {
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args = Args::parse();
 
-    git::GitBroom::check_git()?;
-    git::GitBroom::new(args.repository, args.branch, args.dry_run).broom()?;
+    match git::GitBroom::new(args.repository, args.branch, args.dry_run).broom() {
+        Err(e) => println!("{}", e.to_string().red()),
+        Ok(_) => (),
+    }
 
     Ok(())
 }

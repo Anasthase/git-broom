@@ -1,6 +1,6 @@
 /*
 Git Broom
-Copyright (C) 2023  All contributors.
+Copyright (C) 2024  All contributors.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -55,25 +55,50 @@ impl GitBroom {
         }
     }
 
-    pub fn check_git() -> Result<(), io::Error> {
-        Command::new("git").arg("--version").output()?;
-        Command::new("git").arg("status").output()?;
-
-        Ok(())
-    }
-
     pub fn broom(&self) -> Result<(), io::Error> {
         if let Some(repository) = &self.repository {
             env::set_current_dir(Path::new(repository))?;
         }
 
-        self.broom_branch(self.get_working_branch()?)?;
+        if self.check_git()? && self.check_repository()? {
+            self.broom_branch(self.get_working_branch()?)?;
+        }
 
         if let Some(path) = &self.current_dir {
             env::set_current_dir(path)?;
         }
 
         Ok(())
+    }
+
+    fn check_git(&self) -> Result<bool, io::Error> {
+        let output_result = Command::new("git").arg("--version").output();
+        if let Ok(output) = output_result {
+            if let Some(code) = output.status.code() {            
+                if code == 0 {
+                    return Ok(true);
+                }
+            }
+        }         
+
+        Err(io::Error::new(
+            ErrorKind::Other,
+            self.localization.get_message("git-not-found"),
+        ))
+    }
+
+    fn check_repository(&self) -> Result<bool, io::Error> {
+        let output = Command::new("git").arg("status").output()?;
+        if let Some(code) = output.status.code() {
+            if code == 0 {
+                return Ok(true);
+            }
+        }
+
+        Err(io::Error::new(
+            ErrorKind::Other,
+            self.localization.get_message("not-a-git-repository"),
+        ))
     }
 
     fn broom_branch(&self, branch: String) -> Result<(), io::Error> {
