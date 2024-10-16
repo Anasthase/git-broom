@@ -30,6 +30,7 @@ pub struct GitBroom {
     repository: Option<String>,
     branch: Option<String>,
     dry_run: bool,
+    include_protected_branches: bool,
     current_dir: Option<PathBuf>,
     localization: Localization,
 }
@@ -40,11 +41,17 @@ struct Branch {
 }
 
 impl GitBroom {
-    pub fn new(repository: Option<String>, branch: Option<String>, dry_run: bool) -> Self {
+    pub fn new(
+        repository: Option<String>,
+        branch: Option<String>,
+        dry_run: bool,
+        include_protected_branches: bool,
+    ) -> Self {
         Self {
             repository,
             branch,
             dry_run,
+            include_protected_branches,
             current_dir: {
                 match env::current_dir() {
                     Ok(path) => Some(path),
@@ -107,14 +114,13 @@ impl GitBroom {
         if !merged_branches.is_empty() {
             let protected_branches: Vec<String> = merged_branches
                 .iter()
-                .filter(|branch| branch.protected)
+                .filter(|branch| !self.include_protected_branches && branch.protected)
                 .map(|branch| String::from(&branch.name))
                 .collect();
 
-            let not_protected_branches: Vec<String> = merged_branches
-                .iter()
-                .filter(|branch| !branch.protected)
-                .map(|branch| String::from(&branch.name))
+            let not_protected_branches: Vec<Branch> = merged_branches
+                .into_iter()
+                .filter(|branch| self.include_protected_branches || !branch.protected)
                 .collect();
 
             if !protected_branches.is_empty() {
@@ -157,7 +163,15 @@ impl GitBroom {
                 );
 
                 for branch in &not_protected_branches {
-                    println!("  * {}", branch.green());
+                    if branch.protected {
+                        println!(
+                            "  * {} {}",
+                            branch.name.red(),
+                            self.localization.get_message("protected").red()
+                        );
+                    } else {
+                        println!("  * {}", branch.name.green());
+                    }
                 }
 
                 if !self.dry_run {
@@ -207,16 +221,16 @@ impl GitBroom {
         Ok(())
     }
 
-    fn delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
+    fn delete_all_branches(&self, branches: Vec<Branch>) -> Result<(), io::Error> {
         println!();
         for branch in &branches {
-            if self.delete_branch(branch)? {
+            if self.delete_branch(&branch.name)? {
                 println!(
                     "{}",
                     self.localization.get_message_with_one_arg(
                         "branch-deleted",
                         String::from("branch"),
-                        branch.bold().to_string(),
+                        branch.name.bold().to_string(),
                     )
                 );
             } else {
@@ -225,7 +239,7 @@ impl GitBroom {
                     self.localization.get_message_with_one_arg(
                         "branch-cannot-be-deleted",
                         String::from("branch"),
-                        branch.bold().to_string(),
+                        branch.name.bold().to_string(),
                     )
                 );
             }
@@ -234,7 +248,7 @@ impl GitBroom {
         Ok(())
     }
 
-    fn ask_delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
+    fn ask_delete_all_branches(&self, branches: Vec<Branch>) -> Result<(), io::Error> {
         println!();
 
         let yes = self
@@ -245,26 +259,35 @@ impl GitBroom {
             .unwrap();
 
         for branch in &branches {
-            let user_choice_result = self.read_user_input(
-                self.localization.get_message_with_one_arg(
+            let message: String;
+
+            if branch.protected {
+                message = self.localization.get_message_with_one_arg(
+                    "delete-protected-branch-yes-no",
+                    String::from("branch"),
+                    branch.name.bold().to_string(),
+                );
+            } else {
+                message = self.localization.get_message_with_one_arg(
                     "delete-branch-yes-no",
                     String::from("branch"),
-                    branch.bold().to_string(),
-                ) + " ",
-                'n',
-            );
+                    branch.name.bold().to_string(),
+                );
+            }
+
+            let user_choice_result = self.read_user_input(message + " ", 'n');
 
             if user_choice_result.is_ok() {
                 let user_choice = user_choice_result.unwrap();
 
                 if user_choice == yes {
-                    if self.delete_branch(branch)? {
+                    if self.delete_branch(&branch.name)? {
                         println!(
                             "{}",
                             self.localization.get_message_with_one_arg(
                                 "branch-deleted",
                                 String::from("branch"),
-                                branch.bold().to_string(),
+                                branch.name.bold().to_string(),
                             )
                         );
                     } else {
@@ -273,7 +296,7 @@ impl GitBroom {
                             self.localization.get_message_with_one_arg(
                                 "branch-cannot-be-deleted",
                                 String::from("branch"),
-                                branch.bold().to_string(),
+                                branch.name.bold().to_string(),
                             )
                         );
                     }
@@ -283,7 +306,7 @@ impl GitBroom {
                         self.localization.get_message_with_one_arg(
                             "branch-has-not-been-deleted",
                             String::from("branch"),
-                            branch.bold().to_string(),
+                            branch.name.bold().to_string(),
                         )
                     );
                 }
@@ -293,7 +316,7 @@ impl GitBroom {
                     self.localization.get_message_with_one_arg(
                         "branch-has-not-been-deleted",
                         String::from("branch"),
-                        branch.bold().to_string(),
+                        branch.name.bold().to_string(),
                     )
                 );
             }

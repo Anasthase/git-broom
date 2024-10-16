@@ -35,12 +35,22 @@ struct Args {
     /// Print merged branches, do not propose to delete them.
     #[arg(short, long)]
     dry_run: bool,
+    /// Propose to delete protected branches, only printing warnings. Use with care.
+    #[arg(short, long)]
+    include_protected_branches: bool,
 }
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args = Args::parse();
 
-    match git::GitBroom::new(args.repository, args.branch, args.dry_run).broom() {
+    match git::GitBroom::new(
+        args.repository,
+        args.branch,
+        args.dry_run,
+        args.include_protected_branches,
+    )
+    .broom()
+    {
         Err(e) => println!("{}", e.to_string().red()),
         Ok(_) => (),
     }
