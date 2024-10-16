@@ -74,12 +74,12 @@ impl GitBroom {
     fn check_git(&self) -> Result<bool, io::Error> {
         let output_result = Command::new("git").arg("--version").output();
         if let Ok(output) = output_result {
-            if let Some(code) = output.status.code() {            
+            if let Some(code) = output.status.code() {
                 if code == 0 {
                     return Ok(true);
                 }
             }
-        }         
+        }
 
         Err(io::Error::new(
             ErrorKind::Other,
@@ -161,13 +161,35 @@ impl GitBroom {
                 }
 
                 if !self.dry_run {
-                    match self.read_user_input(
+                    let all = self
+                        .localization
+                        .get_message("choice-delete-all")
+                        .chars()
+                        .next()
+                        .unwrap();
+                    let selected = self
+                        .localization
+                        .get_message("choice-delete-selected")
+                        .chars()
+                        .next()
+                        .unwrap();
+
+                    let user_choice_result = self.read_user_input(
                         self.localization.get_message("delete-selection") + " ",
                         'n',
-                    )? {
-                        'a' => self.delete_all_branches(not_protected_branches)?,
-                        's' => self.ask_delete_all_branches(not_protected_branches)?,
-                        _ => println!("{}", self.localization.get_message("no-branch-deleted"),),
+                    );
+
+                    if user_choice_result.is_ok() {
+                        let user_choice = user_choice_result.unwrap();
+                        if user_choice == all {
+                            self.delete_all_branches(not_protected_branches)?;
+                        } else if user_choice == selected {
+                            self.ask_delete_all_branches(not_protected_branches)?;
+                        } else {
+                            println!("{}", self.localization.get_message("no-branch-deleted"));
+                        }
+                    } else {
+                        println!("{}", self.localization.get_message("no-branch-deleted"));
                     }
                 }
             }
@@ -214,16 +236,28 @@ impl GitBroom {
 
     fn ask_delete_all_branches(&self, branches: Vec<String>) -> Result<(), io::Error> {
         println!();
+
+        let yes = self
+            .localization
+            .get_message("choice-yes")
+            .chars()
+            .next()
+            .unwrap();
+
         for branch in &branches {
-            match self.read_user_input(
+            let user_choice_result = self.read_user_input(
                 self.localization.get_message_with_one_arg(
                     "delete-branch-yes-no",
                     String::from("branch"),
                     branch.bold().to_string(),
                 ) + " ",
                 'n',
-            )? {
-                'y' => {
+            );
+
+            if user_choice_result.is_ok() {
+                let user_choice = user_choice_result.unwrap();
+
+                if user_choice == yes {
                     if self.delete_branch(branch)? {
                         println!(
                             "{}",
@@ -243,15 +277,25 @@ impl GitBroom {
                             )
                         );
                     }
+                } else {
+                    println!(
+                        "{}",
+                        self.localization.get_message_with_one_arg(
+                            "branch-has-not-been-deleted",
+                            String::from("branch"),
+                            branch.bold().to_string(),
+                        )
+                    );
                 }
-                _ => println!(
+            } else {
+                println!(
                     "{}",
                     self.localization.get_message_with_one_arg(
                         "branch-has-not-been-deleted",
                         String::from("branch"),
                         branch.bold().to_string(),
                     )
-                ),
+                );
             }
         }
 
