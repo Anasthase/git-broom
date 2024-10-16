@@ -1,6 +1,6 @@
 [package]
 name = "git-broom"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 readme = "README.md"
 license = "GPL-3"
@@ -8,6 +8,9 @@ repository = "https://github.com/Anasthase/git-broom"
 description = "Helper tool to clean up local merged Git branches.\nDefine protected branches with a comma-separated list of regular expressions in git configuration under the key `broom.protectedbranches`.\nEx: git config --local broom.protectedbranches main,develop,^release/+"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+strip = true
 
 [dependencies]
 clap = { version = "4.3.0", features = ["derive"] }
