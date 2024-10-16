@@ -15,8 +15,11 @@ found-merged =
         *[other] Found { $count } merged branches on { $branch }:
     }
 delete-selection = Delete [a]ll, [s]elected, [n]one:
+choice-delete-all = a
+choice-delete-selected = s
 no-branch-deleted = No branch deleted.
 delete-branch-yes-no = Delete branch { $branch }? [y]es, [n]o:
+choice-yes = y
 branch-deleted = Branch { $branch } deleted.
 branch-cannot-be-deleted = { $branch } cannot be deleted.
 branch-has-not-been-deleted = { $branch } has not been deleted.
