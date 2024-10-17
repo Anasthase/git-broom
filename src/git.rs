@@ -35,6 +35,7 @@ pub struct GitBroom {
     localization: Localization,
 }
 
+#[derive(Clone)]
 struct Branch {
     name: String,
     protected: bool,
@@ -112,14 +113,15 @@ impl GitBroom {
         let merged_branches = self.get_merged_branches(&branch)?;
 
         if !merged_branches.is_empty() {
-            let protected_branches: Vec<String> = merged_branches
+            let protected_branches: Vec<Branch> = merged_branches
                 .iter()
+                .cloned()
                 .filter(|branch| !self.include_protected_branches && branch.protected)
-                .map(|branch| String::from(&branch.name))
                 .collect();
 
             let not_protected_branches: Vec<Branch> = merged_branches
-                .into_iter()
+                .iter()
+                .cloned()
                 .filter(|branch| self.include_protected_branches || !branch.protected)
                 .collect();
 
@@ -135,7 +137,7 @@ impl GitBroom {
                 );
 
                 for branch in &protected_branches {
-                    println!("  * {}", branch.blue());
+                    println!("  * {}", branch.name.blue());
                 }
 
                 println!(
